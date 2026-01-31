@@ -2,7 +2,7 @@
 
 ![Status](https://img.shields.io/badge/Status-Experimental-orange) ![Python](https://img.shields.io/badge/Python-3.10+-blue) ![AI](https://img.shields.io/badge/Powered%20by-LLM%20%2B%20Vision-purple)
 
-**Ralph Sabor DS** é um framework de agente autônomo projetado para emular o fluxo de trabalho cognitivo de um Cientista de Dados Sênior.
+**Ralph Sabor Data Scientist** é um framework de agente autônomo projetado para emular o fluxo de trabalho cognitivo de um Cientista de Dados.
 
 Diferente de pipelines de AutoML tradicionais que executam uma busca linear ou em grade (Grid Search), o Ralph opera em um ciclo contínuo de raciocínio, codificação, análise visual e tomada de decisão estratégica baseada em objetivos de negócio.
 
@@ -17,10 +17,6 @@ A Engenharia de Software tradicional é determinística: especifica-se a entrada
 1. **O Feedback Loop:** Em DS, um erro não é apenas uma falha de execução; é uma informação sobre a distribuição dos dados. Um pipeline linear falha quando encontra um *drift* inesperado. Um agente precisa "parar, olhar e corrigir".
 2. **A Arte da Decisão:** A escolha entre uma Regressão Bayesiana e uma Rede Neural não é apenas uma questão de acurácia. Envolve interpretabilidade, custo computacional e apetite de risco. O Ralph pondera esses fatores consultando as "Leis do Projeto" (`GOALS.md`).
 3. **Visão Além dos Números:** Um `MSE: 0.04` pode esconder um viés sistemático que apenas um olho humano detectaria ao ver um gráfico de resíduos com padrão heterocedástico. O Ralph utiliza **Modelos de Visão (VLM)** para "enxergar" essa geometria.
-
-### A Abordagem "Sabor"
-
-O nome "Sabor" refere-se à capacidade do agente de adaptar seu comportamento ao contexto específico ("sabor") do problema de negócio — seja conservador para Risco de Crédito ou agressivo para Marketing.
 
 ---
 
