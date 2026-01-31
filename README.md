@@ -54,7 +54,7 @@ graph TD
 ### Componentes Core
 
 1. **The Brain (`core/brain.py`):**
-   * O orquestrador central baseado em LLM (GPT-4o ou Gemini 1.5 Pro).
+   * O orquestrador central baseado em LLM (google/openai).
    * Responsável pelo planejamento estratégico e geração de código dinâmico.
 2. **The Vision Critic (`core/vision_critic.py`):**
    * Módulo especializado que recebe imagens geradas pelo código.
