@@ -1,0 +1,24 @@
+pipeline:
+  mode: DEV
+  run_shap: false
+feature_selection:
+  correlation_threshold: 0.98
+  force_drop_features:
+  - feature_757
+xgboost_params:
+  objective: binary:logistic
+  eval_metric: auc
+  max_depth: 4
+  learning_rate: 0.07
+  min_child_weight: 15
+  gamma: 1.2
+  subsample: 0.6
+  colsample_bytree: 0.8
+  n_estimators_dev: 500
+  n_estimators_prod: 500
+  scale_pos_weight: auto
+business_params:
+  ticket_medio: 10000
+  ganho_tp: 1500
+  perda_fp: -10000
+last_update: '2026-01-29 13:48:41'
