@@ -160,23 +160,3 @@ Este projeto é uma exploração de  **Agentic Engineering** . Pull requests sã
 *"Me fail English? That's unpossible!"* — Ralph Wiggum
 
 ```
-
----
-
-### 🔍 Explicação dos Arquivos (Para você organizar)
-
-Aqui está o "quem é quem" para você separar os arquivos que você já tem:
-
-1.  **Arquivos do "Agente" (Genéricos - Vão para `/core`):**
-    * O script `brain.py` (com a lógica de LLM e OODA).
-    * O script `executor.py` (que gerencia o subprocesso Python e o estado).
-    * O script `vision_critic.py` (que manda imagens para a IA).
-    * O `logger.py` (antigo `markdown_logger.py`, mas limpo de regras de negócio específicas).
-
-2.  **Arquivos da "Análise" (Específicos - Vão para `/instances/credit_scoring`):**
-    * O seu antigo `credit_scoring_pipeline.py` deve ser quebrado. As partes de lógica reutilizável (cálculo de lucro, PSI) viram `src/business.py` e `src/drift.py` dentro da pasta da instância.
-    * Os arquivos `GOALS.md` e `config.yaml` são específicos desta análise.
-    * Os arquivos `.parquet` são os dados desta análise.
-
-Dessa forma, amanhã, se você quiser fazer uma análise de **Churn de Marketing**, você só
-```
