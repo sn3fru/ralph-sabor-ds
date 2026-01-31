@@ -40,12 +40,12 @@ graph TD
     C & D & E --> F{Orient}
     F -->|Contexto| G[GOALS.md & Business Rules]
   
-    G --> H{Decide (LLM Brain)}
+    G --> H{"Decide (LLM Brain)"}
     H -->|Caminho 1| I[Escrever Novo Código]
     H -->|Caminho 2| J[Refatorar Código Anterior]
     H -->|Caminho 3| K[Alterar Parâmetros/Config]
   
-    I & J & K --> L{Act (Executor)}
+    I & J & K --> L{"Act (Executor)"}
     L --> M[Execução Sandbox Python]
     M -->|Sucesso| N[Atualizar Memória]
     M -->|Falha| O[Diagnóstico de Erro]
