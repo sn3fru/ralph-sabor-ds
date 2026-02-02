@@ -1,0 +1,51 @@
+# Ralph DS - Git Ignore
+
+# Environment
+.env
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Data (large files)
+*.parquet
+*.csv
+*.pkl
+*.pickle
+!.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Logs and outputs
+*.log
+
+# Keep structure but ignore contents
+state/*
+!state/.gitkeep
+runs/*
+!runs/.gitkeep
+backups/*
+!backups/.gitkeep
+context/data/*
+!context/data/.gitkeep

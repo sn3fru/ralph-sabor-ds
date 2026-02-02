@@ -1,0 +1,3 @@
+# Estado persistente do agente
+# metadata.json: Decisões, métricas, tipo de problema
+# step_*.pkl: Pickles de cada step

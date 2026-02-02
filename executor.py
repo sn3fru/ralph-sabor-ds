@@ -1,12 +1,14 @@
 """
-executor.py - Code Executor with Persistent State
+executor.py - Code Executor with Persistent State (Ralph DS v2.0)
 
-Executa codigo Python mantendo estado entre chamadas:
-- Carrega variaveis de pickles anteriores
+Executor AGNÓSTICO que roda código Python para qualquer problema de Data Science:
+- Mantém namespace persistente (como Jupyter Kernel)
+- Carrega variáveis de pickles anteriores
 - Captura stdout, stderr, exceptions
 - Salva plots como imagens
-- Persiste estado em pickle para proximo passo
+- Persiste estado em pickle para próximo passo
 - Gera metadata.json com schema dos dados
+- Suporta dados em context/data/ ou na raiz
 """
 
 import sys
@@ -78,6 +80,17 @@ def convert_numpy_types(obj):
     return obj
 
 
+# Limite para output no terminal: evita imprimir documentos gigantes (sem ganho para debug)
+MAX_TERMINAL_OUTPUT_CHARS = 2500
+
+
+def _truncate_for_terminal(text: str, max_chars: int = MAX_TERMINAL_OUTPUT_CHARS, suffix: str = "\n\n... (truncado; ver report.md ou logs para completo)") -> str:
+    """Trunca texto para exibição no terminal; não altera o conteúdo salvo em report."""
+    if not text or len(text) <= max_chars:
+        return text or ""
+    return text[:max_chars].rstrip() + suffix
+
+
 class ExecutionResult:
     """Resultado de uma execucao de codigo."""
     
@@ -145,7 +158,19 @@ class CodeExecutor:
         
         # Contador de plots
         self._plot_counter = 0
-    
+
+        # REPORTS_DIR no namespace para os notebooks (será sobrescrito por set_run_dir quando houver run ativa)
+        self.namespace["REPORTS_DIR"] = str(self.reports_dir)
+
+    def set_run_dir(self, run_dir: Path) -> None:
+        """
+        Define a pasta desta execução (runs/YYYYMMDD_HHMMSS).
+        Todos os reports e plots desta run vão para essa pasta.
+        """
+        self.reports_dir = Path(run_dir)
+        self.reports_dir.mkdir(parents=True, exist_ok=True)
+        self.namespace["REPORTS_DIR"] = str(self.reports_dir)
+
     def _setup_default_imports(self):
         """Configura imports padrao no namespace."""
         import pandas as pd
@@ -161,7 +186,7 @@ class CodeExecutor:
         config_path = self.base_dir / "config.yaml"
         if config_path.exists():
             with open(config_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
+                config = yaml.safe_load(f) or {}
             mode = config.get('pipeline', {}).get('mode', 'DEV')
         else:
             mode = 'DEV'
@@ -175,7 +200,14 @@ class CodeExecutor:
         self.namespace['NumpyEncoder'] = NumpyEncoder
         self.namespace['convert_numpy_types'] = convert_numpy_types
         
+        # Paths importantes para os scripts
+        self.namespace['BASE_DIR'] = str(self.base_dir)
+        self.namespace['STATE_DIR'] = str(self.state_dir)
+        self.namespace['CONTEXT_DIR'] = str(self.base_dir / "context")
+        self.namespace['DATA_DIR'] = str(self._find_data_dir())
+        
         print(f"[EXECUTOR] Modo: {mode} {'(2% da base)' if mode == 'DEV' else '(base completa)'}")
+        print(f"[EXECUTOR] DATA_DIR: {self.namespace['DATA_DIR']}")
         
         # Tentar imports opcionais
         try:
@@ -186,10 +218,13 @@ class CodeExecutor:
         
         try:
             from sklearn.model_selection import train_test_split
-            from sklearn.metrics import roc_auc_score, roc_curve
+            from sklearn.metrics import roc_auc_score, roc_curve, mean_squared_error, mean_absolute_error, r2_score
             self.namespace['train_test_split'] = train_test_split
             self.namespace['roc_auc_score'] = roc_auc_score
             self.namespace['roc_curve'] = roc_curve
+            self.namespace['mean_squared_error'] = mean_squared_error
+            self.namespace['mean_absolute_error'] = mean_absolute_error
+            self.namespace['r2_score'] = r2_score
         except ImportError:
             pass
         
@@ -199,6 +234,19 @@ class CodeExecutor:
         except ImportError:
             pass
     
+    def _find_data_dir(self) -> Path:
+        """
+        Encontra o diretório de dados.
+        
+        Procura em ordem:
+        1. context/data/ (preferido para projetos agnósticos)
+        2. Raiz do projeto (fallback)
+        """
+        context_data = self.base_dir / "context" / "data"
+        if context_data.exists():
+            return context_data
+        return self.base_dir
+    
     def _load_metadata(self) -> Dict[str, Any]:
         """Carrega metadata do estado atual."""
         if self.metadata_path.exists():
@@ -206,11 +254,15 @@ class CodeExecutor:
                 return json.load(f)
         return {
             "current_step": None,
+            "problem_type": "unknown",  # binary_classification, multiclass, regression, etc.
+            "target_column": None,
+            "target_info": {},  # n_unique, dtype, class_balance
             "data": {},
             "decisions": {
                 "features_to_drop": [],
                 "features_to_transform": {},
-                "imputation_strategy": "median"
+                "safe_features": [],
+                "imputation_strategy": "none"  # XGBoost prefere none
             },
             "metrics": {},
             "warnings": [],
@@ -335,7 +387,10 @@ class CodeExecutor:
         vars_before = set(self.namespace.keys())
         
         start_time = datetime.now()
-        
+
+        # Garantir que REPORTS_DIR aponta para a pasta da run atual (notebooks usam essa variável)
+        self.namespace["REPORTS_DIR"] = str(self.reports_dir)
+
         try:
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
                 # Executar no namespace persistente
@@ -386,9 +441,54 @@ class CodeExecutor:
         # Salvar estado se sucesso
         if result.success:
             result.state_file = self.save_state(step_name)
-        
+
+        # Report markdown único por run: append step (stdout + imagens) para uso como contexto
+        self._append_to_run_report(step_name, result)
+
         return result
-    
+
+    def _append_to_run_report(self, step_name: str, result: "ExecutionResult") -> None:
+        """Append step output and plot refs to runs/YYYYMMDD_HHMMSS/report.md (único por run).
+        Inclui imagens capturadas (result.plots) e PNGs salvos pelo script nesta step (reports_dir)."""
+        report_path = self.reports_dir / "report.md"
+        if not report_path.parent.exists():
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+        header = f"""# Run Report
+
+**Pasta:** `{self.reports_dir.name}`
+**Gerado por:** executor (cada step appenda aqui). Scripts podem usar MarkdownLogger com append_to_existing + report.md para enriquecer.
+
+---
+
+"""
+        if not report_path.exists():
+            report_path.write_text(header, encoding="utf-8")
+        stdout = (result.stdout or "").strip()
+        if len(stdout) > 12000:
+            stdout = stdout[:12000] + "\n\n... (truncado)"
+        block = f"\n## Step: {step_name}\n\n"
+        raw_stdout = result.stdout or ""
+        # Status explícito: stub/TODO = implementação pendente
+        if "Stub" in raw_stdout or "TODO pelo agente" in raw_stdout:
+            block += "⚠️ **Status:** Stub/TODO detectado — o step não está implementado. O agente DEVE editar o script para implementar a funcionalidade antes de prosseguir.\n\n"
+        if result.success is False:
+            block += "❌ **Status:** Falhou.\n\n"
+        elif not stdout and not result.plots:
+            block += "ℹ️ **Status:** Sem output.\n\n"
+        if stdout:
+            block += "### Output\n\n```\n" + stdout + "\n```\n\n"
+        # Imagens: capturadas pelo executor + PNGs salvos pelo script nesta step
+        plot_names = {Path(p).name for p in result.plots}
+        for p in self.reports_dir.glob("*.png"):
+            if step_name in p.stem:
+                plot_names.add(p.name)
+        if plot_names:
+            block += "### Plots\n\n"
+            for name in sorted(plot_names):
+                block += f"![{name}]({name})\n\n"
+        with open(report_path, "a", encoding="utf-8") as f:
+            f.write(block)
+
     def run_step(self, step_name: str, load_previous: Optional[str] = None) -> ExecutionResult:
         """
         Executa um script da pasta notebooks/.
@@ -461,9 +561,10 @@ class CodeExecutor:
 
 
 def format_execution_report(result: ExecutionResult, step_name: str) -> str:
-    """Formata resultado da execucao como markdown."""
-    status_emoji = "SUCCESS" if result.success else "FAILED"
-    
+    """Formata resultado da execucao como markdown. Stdout/stderr/exception sao truncados no terminal."""
+    status_emoji = "✅ SUCCESS" if result.success else "❌ FAILED"
+    stdout_display = _truncate_for_terminal(result.stdout or "(empty)")
+    stderr_display = _truncate_for_terminal(result.stderr or "(empty)")
     report = f"""## Execution Report: {step_name}
 
 **Status:** {status_emoji}
@@ -473,20 +574,20 @@ def format_execution_report(result: ExecutionResult, step_name: str) -> str:
 
 ### Standard Output
 ```
-{result.stdout or '(empty)'}
+{stdout_display}
 ```
 
 ### Standard Error
 ```
-{result.stderr or '(empty)'}
+{stderr_display}
 ```
 """
-    
     if result.exception:
+        exc_display = _truncate_for_terminal(result.exception)
         report += f"""
 ### Exception
 ```
-{result.exception}
+{exc_display}
 Line: {result.exception_line}
 ```
 """
@@ -494,12 +595,12 @@ Line: {result.exception_line}
     if result.plots:
         report += "\n### Plots Generated\n"
         for plot in result.plots:
-            report += f"- {plot}\n"
+            report += f"- ![{Path(plot).name}]({Path(plot).name})\n"
     
     if result.metadata:
         report += "\n### DataFrames in Memory\n"
         for name, meta in result.metadata.items():
-            report += f"- **{name}**: {meta['rows']} rows x {meta['columns']} cols\n"
+            report += f"- **{name}**: {meta['rows']:,} rows × {meta['columns']} cols\n"
     
     return report
 
@@ -551,11 +652,11 @@ if __name__ == "__main__":
                 elif code.startswith('run '):
                     step = code[4:].strip()
                     result = executor.run_step(step)
-                    print(result)
+                    print(_truncate_for_terminal(str(result)))
                 else:
                     result = executor.run_code(code, "interactive")
                     if result.stdout:
-                        print(result.stdout)
+                        print(_truncate_for_terminal(result.stdout))
                     if result.exception:
                         print(f"Error: {result.exception}")
             except (KeyboardInterrupt, EOFError):

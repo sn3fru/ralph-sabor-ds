@@ -1,10 +1,23 @@
+# Pipeline e modelo - Single Source of Truth
+# O agente deve seguir a Diretriz de Modelagem (AGENT_README.md / context/02_diretriz_modelagem.md)
+# antes de alterar feature_selection ou imputation.
+
 pipeline:
   mode: DEV
   run_shap: false
+
+# Diretriz "Let the Model Learn" (XGBoost nativo):
+# - NÃO impute: XGBoost usa Sparsity-aware Split Finding; NaN é informação.
+# - NÃO remova colinearidade (exceto duplicatas >0.999): árvores lidam com isso.
+# - Só remova features 100% vazias (null_threshold 0.99).
 feature_selection:
-  correlation_threshold: 0.98
-  force_drop_features:
-  - feature_757
+  remove_high_correlation: false   # true = remover pares correlacionados (evitar em XGBoost)
+  correlation_threshold: 0.999    # só remove "gêmeos" idênticos (duplicatas)
+  remove_high_nulls: true         # remover colunas quase vazias
+  null_threshold: 0.99            # só remove se >= 99% nulos (coluna inútil)
+  imputation_strategy: "none"    # "none" = não imputar; "median" = imputar pela mediana
+  force_drop_features: []        # agente preenche se detectar drift extremo
+
 xgboost_params:
   objective: binary:logistic
   eval_metric: auc
@@ -17,8 +30,10 @@ xgboost_params:
   n_estimators_dev: 500
   n_estimators_prod: 500
   scale_pos_weight: auto
+
 business_params:
   ticket_medio: 10000
   ganho_tp: 1500
   perda_fp: -10000
-last_update: '2026-01-29 13:48:41'
+
+last_update: '2026-01-31'

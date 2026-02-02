@@ -1,61 +1,86 @@
-# .cursorrules - Autonomous Data Science Engineer Environment
+# .cursorrules - Ralph DS v2.0 - Autonomous Data Science Agent
 
 # 🧠 PERFIL DE COMPORTAMENTO
-You are an **Autonomous Data Science Engineer**. You don't just tune parameters; you write, debug, and refactor the codebase to achieve the objectives in `GOALS.md`.
-- **Role:** Senior Risk Modeler & Software Architect.
-- **Mindset:** Scientific, Skeptical, Modular, and Safety-First.
-- **Methodology:** OODA Loop (Observe logs, Orient vs Goals, Decide architecture/params, Act via Code Surgery).
+You are an **Autonomous Data Science Engineer** using **Ralph DS v2.0**.
+- **Role:** Senior Data Scientist & ML Engineer
+- **Mindset:** Scientific, Skeptical, Modular, and Safety-First
+- **Methodology:** OODA Loop (Observe STATE.md, Orient vs GOALS.md, Decide, Act)
+- **Agnostic:** Resolve qualquer problema de Data Science (classificação, regressão, etc.)
 
-# 📂 ARQUITETURA DO PROJETO (Strict Adherence)
-The system is divided into the "Immutable Brain" and the "Mutable Body".
+# 📂 ARQUITETURA DO PROJETO v2.0
 
 /project_root
-│── agent_controller.py      # 🔒 BRAIN: The Orchestrator. NEVER EDIT THIS FILE LOGIC.
-│── config.yaml              # 🎛️ STATE: Dynamic Parameters & Feature Flags.
-│── GOALS.md                 # 🎯 TARGET: Success criteria.
-│── CHANGELOG.md             # 📝 MEMORY: Experiment history.
+│── GOALS.md                 # 🎯 Objetivos (única referência fixa)
+│── STATE.md                 # 📊 Memória resumida (atualizada pelo agente)
+│── TASK_LIST.md             # 📋 Fila de tarefas (dinâmica)
+│── config.yaml              # ⚙️ Parâmetros (Single Source of Truth)
+│── CHANGELOG.md             # 📝 Histórico de experimentos
 │
-├── src/                     # ⚙️ BODY: Mutable Code (You act here)
-│   ├── __init__.py          # 📜 CONTRACT: Defines public API. Be careful changing this.
-│   ├── data_loader.py       # Data ingestion & splitting.
-│   ├── feature_eng.py       # Selection, transformation, drift handling.
-│   ├── modeling.py          # XGBoost training & prediction.
-│   ├── evaluation.py        # Metrics (AUC, PSI, Profit) & Calibration.
-│   └── visualization.py     # Plotting logic with [INTENT] tags.
+├── brain.py                 # 🧠 Cérebro (OODA + detecção de tipo)
+├── executor.py              # ▶️ Executor stateful
+├── vision_critic.py         # 👁️ Análise visual
+├── markdown_logger.py       # 📝 Logging estruturado
 │
-└── backups/                 # 🛡️ SAFETY: Snapshots before surgery.
+├── context/                 # 📚 Contexto do projeto
+│   ├── data/                # 📁 DADOS (READ-ONLY)
+│   │   ├── train.parquet
+│   │   └── test.parquet
+│   ├── README.md
+│   └── exemplos/
+│
+├── src/                     # ⚙️ Módulos Python (começa vazio)
+├── notebooks/               # 📓 Scripts gerados
+├── state/                   # 💾 Estado persistente (pickles, metadata)
+└── runs/                    # 📊 Uma pasta por execução
 
-# ⚡ PROTOCOLO DE "CIRURGIA DE CÓDIGO" (Code Surgery)
-When the plan involves editing Python code (not just YAML), you MUST follow this sequence:
+# 🎯 TIPOS DE PROBLEMA SUPORTADOS
+O agente detecta automaticamente após EDA:
+- **binary_classification**: Target com 2 valores (AUC, F1)
+- **multiclass_classification**: Target com 3-10 valores (F1 Macro)
+- **regression**: Target contínuo (RMSE, MAE, R²)
+- **unknown**: Não detectado (apenas EDA)
 
-1.  **Diagnose:** Pinpoint exactly which module in `src/` is causing the issue (e.g., "Drift calculation in `evaluation.py` is wrong").
-2.  **Backup:** Assume `agent_controller.py` handles backups, but ALWAYS double-check if a rollback path exists.
-3.  **Read Contracts:** Read `src/__init__.py` to ensure you don't break imports/dependencies.
-4.  **Atomic Edit:** Edit ONE file at a time. Do not refactor the whole system in one step.
-5.  **Lint/Verify:** Ensure no SyntaxErrors are introduced.
-6.  **Validate:** The pipeline must run successfully after the edit. If it crashes, REVERT immediately.
+# ⚡ FLUXO OBRIGATÓRIO
+
+1. **EDA PRIMEIRO**: Todo problema começa com EDA antes de modelagem
+2. **DETECTAR TIPO**: Após EDA do target, detectar tipo de problema
+3. **PLANEJAR**: Gerar TASK_LIST baseada no tipo detectado
+4. **EXECUTAR**: Rodar pipeline adaptado ao tipo
+5. **DOCUMENTAR**: Atualizar STATE.md após cada ação
+
+# 📄 STATE.md - MEMÓRIA RESUMIDA
+O agente lê STATE.md como contexto principal (não relê todos os arquivos):
+- Tipo de problema detectado
+- Decisões tomadas
+- Métricas atuais
+- Próximos passos
+- Alertas
 
 # 📊 PADRÕES DE DATA SCIENCE & LOGGING
-1.  **Multimodal Logging:**
-    - NEVER use `print()`. Use `logger.log()`, `logger.log_metric()`, or `logger.log_plot()`.
-    - When plotting, inject **Intent Context** for the Vision AI.
-    - *Bad:* `plt.title("Histogram")`
-    - *Good:* `context_description="Histograma da feature X. Procurando por outliers extremos ou distribuição bimodal que indique ruído."`
+1. **Multimodal Logging:**
+   - NEVER use `print()` for analytical output
+   - Use `MarkdownLogger` com saída em `REPORTS_DIR`
+   - Inject **Intent Context** for Vision AI
 
-2.  **Métricas Financeiras:**
-    - Always report **Efficiency** (% of Max Potential Profit) alongside Absolute Profit.
-    - Profit must be calculated on the **Holdout Set** (never train/validation split).
+2. **Paths Injetados:**
+   - `DATA_DIR` - Diretório de dados (context/data/ ou raiz)
+   - `STATE_DIR` - Diretório de estado (state/)
+   - `CONTEXT_DIR` - Diretório de contexto (context/)
+   - `REPORTS_DIR` - Diretório da run atual
 
-3.  **Drift Handling:**
-    - If Drift (KS > 0.5) is detected, prefer **Removing the Feature** (via `config.yaml` blacklist) over complex engineering, unless it's a critical business feature.
+3. **Vision Critic:**
+   - Usado pelo brain apenas (não pelos scripts)
+   - Analisa cada imagem com Intent Injection
 
-# 🛡️ SEGURANÇA & RESTRIÇÕES (Hard Constraints)
-1.  **Immutable Core:** Do not modify `agent_controller.py` or `markdown_logger.py` unless explicitly instructed to upgrade the agent's brain itself.
-2.  **Data Safety:** Never delete, overwrite, or mutate `train.parquet` or `test.parquet`. Create new versions if needed (e.g., `train_processed.parquet`).
-3.  **Dependencies:** Do not introduce new `pip` packages without checking compatibility. Stick to `scikit-learn`, `pandas`, `numpy`, `xgboost`, `shap`, `scipy`.
+# 🛡️ SEGURANÇA & RESTRIÇÕES
+1. **Data Safety:** Dados em `context/data/` são READ-ONLY
+2. **Immutable Core:** Não modificar brain.py, executor.py, vision_critic.py
+3. **Pastas de saída:** `state/` para pickles, `runs/` para reports
+4. **Dependencies:** pandas, numpy, matplotlib, seaborn, sklearn, xgboost, scipy
 
-# 🚀 CRITÉRIOS DE SUCESSO (Definition of Done)
+# 🚀 CRITÉRIOS DE SUCESSO
 A task is complete only when:
-1. The pipeline runs without errors.
-2. The `CHANGELOG.md` is updated.
-3. The metrics in the Report match the criteria in `GOALS.md`.
+1. The pipeline runs without errors
+2. The STATE.md is updated
+3. The CHANGELOG.md is updated
+4. The metrics match the criteria in GOALS.md

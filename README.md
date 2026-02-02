@@ -1,10 +1,18 @@
-# 🧬 Ralph Sabor DS: Autonomous Data Science Engineer
+# 🧬 Ralph DS v2.0: Agente Autônomo de Data Science
 
 ![Status](https://img.shields.io/badge/Status-Experimental-orange) ![Python](https://img.shields.io/badge/Python-3.10+-blue) ![AI](https://img.shields.io/badge/Powered%20by-LLM%20%2B%20Vision-purple)
 
-**Ralph Sabor Data Scientist** é um framework de agente autônomo projetado para emular o fluxo de trabalho cognitivo de um Cientista de Dados.
+**Ralph DS** é um agente autônomo **AGNÓSTICO** que resolve qualquer problema de Data Science.
 
-Diferente de pipelines de AutoML tradicionais que executam uma busca linear ou em grade (Grid Search), o Ralph opera em um ciclo contínuo de raciocínio, codificação, análise visual e tomada de decisão estratégica baseada em objetivos de negócio.
+## Novidades da v2.0
+
+- **Agnóstico ao Domínio**: Detecta automaticamente o tipo de problema (classificação, regressão, etc.)
+- **EDA Obrigatória**: Todo problema começa com análise exploratória
+- **STATE.md**: Memória resumida para não reler todos os arquivos
+- **Planejamento Dinâmico**: TASK_LIST adaptativa baseada nos insights
+- **context/data/**: Dados e contexto do projeto em um só lugar
+
+Diferente de pipelines de AutoML tradicionais que executam uma busca linear, o Ralph opera em um ciclo contínuo de raciocínio, codificação, análise visual e tomada de decisão estratégica.
 
 ---
 
@@ -98,11 +106,9 @@ O agente **não parte do zero**. Toda documentação, exemplos de código e conv
 
 ### O que colocar em `context/`
 
-| Tipo                                     | Exemplo                                                                |
-| ---------------------------------------- | ---------------------------------------------------------------------- |
-| **Documentação**                 | Regras de negócio, glossário, checklists em `.md` ou `.txt`.     |
-| **Exemplos de código**            | Pipeline legado (ex.:`credit_scoring_pipeline.py`), padrões de EDA. |
-| **Configurações de referência** | `.yaml` ou `.json` que o agente deve seguir como padrão.          |
+* **Documentação:** regras de negócio, glossário, checklists em `.md` ou `.txt`.
+* **Exemplos de código:** pipeline legado (ex.: `credit_scoring_pipeline.py`), padrões de EDA.
+* **Configurações de referência:** `.yaml` ou `.json` que o agente deve seguir como padrão.
 
 ### Formato
 
@@ -127,37 +133,76 @@ python context/credit_scoring_pipeline.py
 
 ---
 
+## 🎯 Tipos de Problema Suportados
+
+O Ralph detecta automaticamente o tipo de problema após a EDA:
+
+| Tipo | Detecção | Métricas | Pipeline |
+|------|----------|----------|----------|
+| **Classificação Binária** | Target com 2 valores | AUC, F1, Precision, Recall | XGBoost + Threshold Opt |
+| **Classificação Multiclasse** | Target com 3-10 valores | F1 Macro, Accuracy | XGBoost + Calibração |
+| **Regressão** | Target contínuo | RMSE, MAE, R² | XGBoost + Residual Analysis |
+| **Desconhecido** | Não detectado | - | Apenas EDA |
+
+---
+
 ## 🚀 Ciclo de Vida de uma Análise
 
-O Ralph não segue um script pré-definido. Ele constrói o script. Exemplo de um fluxo real em  **Credit Scoring** :
+O Ralph não segue um script pré-definido. Ele constrói o script dinamicamente.
 
-### Fase 1: Diagnóstico (EDA)
+### Fase 0: Inicialização
 
-***Ação:** O Agente escreve um script para carregar dados e plotar nulos.
+```
+1. Ler GOALS.md (objetivos)
+2. Ler context/ (dados, documentação, exemplos)
+3. Carregar STATE.md (se existir)
+4. Criar pasta runs/YYYYMMDD_HHMMSS/
+```
 
-***Visão:** O Vision Critic detecta que `feature_757` tem 93% de nulos.
+### Fase 1: EDA Obrigatória
 
-***Decisão:** O Agente consulta a política e decide remover a feature em vez de imputar, para evitar ruído.
+Todo problema passa por EDA antes de qualquer modelagem:
 
-### Fase 2: Modelagem Iterativa
+```
+01_load_data    → Carregar dados, gerar metadata
+02_eda_overview → Visão geral (shape, tipos, memória)
+03_eda_nulls    → Valores faltantes por feature
+04_eda_target   → Distribuição do target (detecta tipo de problema!)
+05_eda_distrib  → Distribuições das features
+06_eda_corr     → Correlações e redundâncias
+07_eda_drift    → Comparação treino vs teste (se aplicável)
+```
 
-***Ação:** Treina um XGBoost Baseline.
+### Fase 2: Detecção de Tipo e Planejamento
 
-***Observação:** Detecta um Gap de 15% entre Treino e Validação (Overfitting).
+Após a EDA do target, o agente:
+1. Detecta automaticamente o tipo de problema
+2. Gera TASK_LIST dinâmica baseada no tipo
+3. Atualiza STATE.md com decisões
 
-***Reação:** O Agente não avança. Ele decide reescrever a configuração de hiperparâmetros, reduzindo `max_depth` e aumentando `gamma`.
+### Fase 3: Modelagem Iterativa
 
-***Resultado:** Novo treino mostra Gap de 3%. O Agente aprova e segue.
+O agente executa o pipeline apropriado para o tipo de problema detectado.
 
-### Fase 3: Validação de Negócio
+### Fase 4: Documentação Final
 
-***Ação:** Calcula a curva de lucro baseada na matriz de custos.
+O agente gera report.md completo e exporta artefatos.
 
-***Observação:** O lucro máximo ocorre aprovando apenas 20% da base.
+---
 
-***Conflito:** O `GOALS.md` exige aprovação mínima de 60%.
+## 📋 Ciclo de planejamento dinâmico (essência)
 
-***Ajuste:** O Agente recalibra o threshold, reporta a queda de eficiência financeira aceitando o trade-off para cumprir a meta de volume.
+**Única referência fixa:** `GOALS.md`. TASK_LIST, etapas e código são construídos dinamicamente.
+
+1. **Objetivos** → ler GOALS. **Contexto** → context/, state/metadata.json, config.yaml. **O que já rodou** → state/, runs/, CHANGELOG.
+2. **TASK_LIST** → ler e comparar com objetivos e com o que foi executado.
+3. **Ajustes na TASK_LIST?** Se sim: add/remove/edit etapas; criar scripts em `notebooks/` para etapas novas. Se não: rodar de onde parou.
+4. **Rodar próxima etapa** → analisar resultados (prints, relatórios, imagens). Isso altera planejamento? Código atual? Próxima/futura/passada?
+5. **Alterar passado** → editar TASK_LIST e/ou código dos steps; rodar tudo de novo a partir da etapa alterada (`run_from_step`).
+6. **Alterar atual** → edit_code no step atual; rodar de novo e analisar.
+7. **Alterar futuro** → atualizar TASK_LIST e criar scripts se necessário; pode repensar o fluxo a cada análise. Só GOALS não muda.
+
+**Ações do Brain:** `UPDATE_TASK_LIST` (add_steps, remove_steps, edit_steps, run_from), `RUN_FROM_STEP`, `EDIT_CODE`, `WRITE_CODE`, `RUN_STEP`. Replanejamento persistido em TASK_LIST.md (todas as sessões).
 
 ---
 
@@ -193,25 +238,44 @@ cp .env.example .env
 
 ```
 
-### Estrutura do Projeto (este repositório)
+### Estrutura do Projeto (v2.0)
 
 ```text
 project_root/
-├── GOALS.md              # Critérios de sucesso
-├── config.yaml           # Parâmetros (Single Source of Truth)
-├── CHANGELOG.md          # Histórico de experimentos
-├── brain.py              # Cerebro (OODA + injeção de contexto)
-├── agent_controller.py   # Orquestrador alternativo
-├── executor.py           # Executor stateful
-├── vision_critic.py      # Análise visual (Intent Injection)
-├── context/              # Contexto do agente (lido automaticamente)
-│   ├── README.md
-│   └── credit_scoring_pipeline.py   # Pipeline legado de referência
-├── notebooks/            # Scripts gerados pelo agente (01_...py, 02_...py, ...)
-├── state/                # Pickles e metadata.json (estado entre passos)
-├── reports/              # Relatórios .md e plots
-├── train.parquet         # Dados de treino (READ-ONLY)
-└── test.parquet          # Dados de teste (READ-ONLY)
+├── GOALS.md              # 🎯 Critérios de sucesso (única referência fixa)
+├── STATE.md              # 📊 Memória resumida (atualizada pelo agente)
+├── TASK_LIST.md          # 📋 Fila de tarefas (dinâmica)
+├── config.yaml           # ⚙️ Parâmetros (Single Source of Truth)
+├── CHANGELOG.md          # 📝 Histórico de experimentos
+│
+├── brain.py              # 🧠 Cérebro (OODA + detecção de tipo de problema)
+├── executor.py           # ▶️ Executor stateful
+├── vision_critic.py      # 👁️ Análise visual (Intent Injection)
+├── markdown_logger.py    # 📝 Logging estruturado
+│
+├── context/              # 📚 Contexto do projeto (agnóstico)
+│   ├── README.md         # Documentação do problema
+│   ├── exemplos/         # Código de referência
+│   └── data/             # 📁 DADOS DO PROJETO (READ-ONLY)
+│       ├── train.parquet
+│       └── test.parquet
+│
+├── src/                  # ⚙️ Módulos Python (código pesado)
+│   └── __init__.py       # Começa vazio, agente cria sob demanda
+│
+├── notebooks/            # 📓 Scripts gerados (chamam src/)
+│   ├── 01_load_data.py
+│   ├── 02_eda_overview.py
+│   └── ...
+│
+├── state/                # 💾 Estado persistente
+│   ├── metadata.json     # Decisões, métricas, tipo de problema
+│   └── step_*.pkl        # Pickles por step
+│
+└── runs/                 # 📊 Uma pasta por execução
+    └── YYYYMMDD_HHMMSS/
+        ├── report.md     # Log da execução
+        └── *.png         # Visualizações
 ```
 
 ### Executando o Agente
@@ -233,7 +297,14 @@ O Agente irá:
 1. Ler os objetivos em **`GOALS.md`** e os parâmetros em **`config.yaml`**.
 2. Carregar contexto da pasta **`context/`** (documentação, exemplos, pipeline legado).
 3. Carregar dados de **`train.parquet`** e **`test.parquet`** (READ-ONLY; dados processados vão para **`state/`**).
-4. Gerar notebooks em **`notebooks/`**, relatórios em **`reports/`** e estado em **`state/`**.
+4. Criar uma pasta **`runs/YYYYMMDD_HHMMSS/`** para esta execução; todos os reports e plots da run vão para ela.
+5. Para contexto, o agente lê apenas **`state/`** (metadata, decisões) e a **run atual** (não centenas de execuções antigas).
+
+### Múltiplas execuções e histórico
+
+* **Uma pasta por run:** Cada vez que você roda o agente (`python brain.py --mode auto`), é criada **`runs/YYYYMMDD_HHMMSS/`**. Todos os plots e relatórios daquela execução ficam nessa pasta.
+* **Contexto enxuto:** O agente **não** carrega o histórico de todas as runs antigas para decidir. Ele usa **`state/metadata.json`** (decisões, métricas, colunas) e, se existir, o resumo do último report **da run atual** (ou de `README_ANALISE.md`). Assim você pode rodar o fluxo inteiro do zero várias vezes, sem poluir o contexto com centenas de execuções.
+* **Histórico preservado:** As pastas em **`runs/`** ficam guardadas para inspeção humana ou para `scripts/sync_report_to_readme.py` (que busca o .md mais recente em `runs/` e depois em `reports/`).
 
 ---
 
@@ -241,18 +312,16 @@ O Agente irá:
 
 Para adaptar o Ralph a novos domínios, você não altera o código do orquestrador (`brain.py`, `agent_controller.py`); você altera as **regras e o contexto do projeto**:
 
-| Artefato                   | Função                                                                                 |
-| -------------------------- | ---------------------------------------------------------------------------------------- |
-| **`GOALS.md`**     | Define o que é sucesso (KPIs, restrições éticas, latência).                         |
-| **`config.yaml`**  | Single Source of Truth: parâmetros do modelo, feature flags. Nunca hardcodar em Python. |
-| **`CHANGELOG.md`** | Histórico imutável de experimentos; o agente lê antes de iniciar.                     |
-| **`context/`**     | Documentação, exemplos e convenções lidos pelo agente (não partir do zero).         |
-| **`src/*.py`**     | Funções de domínio (ex.: PD para crédito) para o agente importar.                    |
+* **`GOALS.md`:** define o que é sucesso (KPIs, restrições éticas, latência).
+* **`config.yaml`:** Single Source of Truth: parâmetros do modelo, feature flags. Nunca hardcodar em Python.
+* **`CHANGELOG.md`:** histórico imutável de experimentos; o agente lê antes de iniciar.
+* **`context/`:** documentação, exemplos e convenções lidos pelo agente (não partir do zero).
+* **`src/*.py`:** funções de domínio (ex.: PD para crédito) para o agente importar.
 
 ### Regras críticas (`.cursorrules`)
 
 * **Data Safety:** `train.parquet` e `test.parquet` são **READ-ONLY**. Dados processados devem ser salvos em **`state/`** (ex.: `state/train_processed.parquet`) ou em arquivos com sufixo (ex.: `train_processed_06_feature_cleanup.parquet`).
-* **Logging:** Usar **MarkdownLogger** (ou `logger.log()` / `logger.log_metric()` / `logger.log_plot()`); **não** usar `print()` para saída analítica.
+* **Logging:** Usar **MarkdownLogger** (log, log_metric, log_plot) para escrever no report; **não** usar `print()` para saída analítica. A análise das imagens com Vision é feita pelo **brain** via **Vision Critic** após cada step (scripts não chamam Vision).
 * **Erro:** Se um passo falhar, registrar em **`CHANGELOG.md`** como "FAILED" e reverter **`config.yaml`** ao último estado funcional; o agente prefere **edit_code** ou **rollback** a **stop**.
 
 ---

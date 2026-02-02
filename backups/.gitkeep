@@ -1,0 +1,2 @@
+# Backups automáticos antes de edições
+# O agente salva aqui antes de modificar código em src/ ou notebooks/

@@ -372,51 +372,52 @@ class MarkdownLogger:
     Substitui prints e displays do notebook por logging estruturado.
     """
     
-    def __init__(self, output_dir: str = "reports", run_name: Optional[str] = None, 
-                 use_vision_llm: bool = False, vision_provider: str = "openai", 
-                 vision_api_key: str = None, vision_model_name: str = None):
+    def __init__(self, output_dir: str = "reports", run_name: Optional[str] = None,
+                 use_vision_llm: bool = False, vision_provider: str = "openai",
+                 vision_api_key: str = None, vision_model_name: str = None,
+                 append_to_existing: bool = False, report_filename: Optional[str] = None):
         """
         Inicializa o logger markdown.
-        
+
         Args:
-            output_dir: Diretório onde salvar os relatórios
-            run_name: Nome da execução (se None, usa timestamp)
+            output_dir: Diretório onde salvar (use REPORTS_DIR do executor para run atual)
+            run_name: Nome da execução / step (se None, usa timestamp)
             use_vision_llm: Se True, ativa análise visual automática de gráficos
             vision_provider: Provedor de LLM ('openai', 'gemini', 'claude')
             vision_api_key: Chave da API (se None, tenta pegar do ambiente ou .env)
             vision_model_name: Nome do modelo (especialmente para Gemini, lê do .env se None)
+            append_to_existing: Se True, não sobrescreve; appenda ao report (mesmo arquivo por run)
+            report_filename: Se setado (ex: "report.md"), usa este arquivo; com append_to_existing, todos os steps escrevem no mesmo report
         """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
-        
+
         if run_name is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             run_name = f"credit_scoring_{timestamp}"
-        
+
         self.run_name = run_name
-        self.report_path = self.output_dir / f"{run_name}.md"
+        self.append_to_existing = append_to_existing
+        self.report_path = self.output_dir / (report_filename or f"{run_name}.md")
         self.images_dir = self.output_dir / f"{run_name}_images"
         self.images_dir.mkdir(exist_ok=True)
-        
+
         self.sections = []
         self.current_section = None
         self.image_counter = 0
-        
-        # ✅ MEMÓRIA DE CONTEXTO GLOBAL (Global Context Memory)
-        self.global_context = {}  # Armazena fatos importantes do pipeline
-        
-        # Inicializa o analista visual se solicitado
+
+        self.global_context = {}
+
         self.vision_analyst = None
         if use_vision_llm:
             self.vision_analyst = VisionAnalyst(
-                api_key=vision_api_key, 
+                api_key=vision_api_key,
                 provider=vision_provider,
                 model_name=vision_model_name
             )
             model_info = f" ({self.vision_analyst.model_name})" if self.vision_analyst.model_name else ""
             print(f"✅ Análise Visual ativada (Provider: {vision_provider}{model_info})")
-        
-        # Inicializar relatório
+
         self._init_report()
     
     def update_context(self, key: str, value: Any):
@@ -440,10 +441,13 @@ class MarkdownLogger:
         self.global_context[key] = value
     
     def _init_report(self):
-        """Inicializa o arquivo markdown com cabeçalho."""
+        """Inicializa o arquivo markdown com cabeçalho ou appenda seção (append_to_existing)."""
+        if self.append_to_existing and self.report_path.exists():
+            with open(self.report_path, "a", encoding="utf-8") as f:
+                f.write(f"\n\n---\n\n## Step: {self.run_name}\n\n")
+            return
         vision_status = "Ativado" if self.vision_analyst else "Desativado"
         vision_provider = self.vision_analyst.provider if self.vision_analyst else "N/A"
-        
         header = f"""# 📊 Relatório de Execução: Credit Scoring Model
 
 **Data/Hora:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
@@ -453,7 +457,7 @@ class MarkdownLogger:
 ---
 
 """
-        with open(self.report_path, 'w', encoding='utf-8') as f:
+        with open(self.report_path, "w", encoding="utf-8") as f:
             f.write(header)
     
     def section(self, title: str, level: int = 2):
@@ -517,7 +521,9 @@ class MarkdownLogger:
         Returns:
             String formatada
         """
-        if isinstance(value, float):
+        if value is None:
+            formatted = "N/A"
+        elif isinstance(value, float):
             formatted = f"{value:.4f}"
         elif isinstance(value, (int, str)):
             formatted = str(value)
@@ -743,7 +749,12 @@ class MarkdownLogger:
             f.write("| Parâmetro | Valor |\n")
             f.write("|-----------|-------|\n")
             for key, value in params.items():
-                formatted_value = f"{value:.4f}" if isinstance(value, float) else str(value)
+                if value is None:
+                    formatted_value = "N/A"
+                elif isinstance(value, float):
+                    formatted_value = f"{value:.4f}"
+                else:
+                    formatted_value = str(value)
                 f.write(f"| `{key}` | {formatted_value} |\n")
             f.write("\n")
     
